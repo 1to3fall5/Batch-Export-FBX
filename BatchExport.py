@@ -48,6 +48,10 @@ class BatchExportFBXOperator(bpy.types.Operator):
         for obj in selected_objects:
             obj.select_set(True)
 
+        # Add the current export directory to the previous directories list if it's not already there
+        if scene.batch_export_directory not in scene.previous_export_directories:
+            scene.previous_export_directories.add().name = scene.batch_export_directory
+
         self.report({'INFO'}, "Batch export complete")
         return {'FINISHED'}
 
@@ -62,29 +66,57 @@ class OBJECT_PT_BatchExportPanel(bpy.types.Panel):
         layout = self.layout
         scene = context.scene
 
-        col = layout.column()
-        
+        row = layout.row(align=True)
+ 
         # 输出目录文本框
-        col.prop(scene, "batch_export_directory", text="Output Directory")
+        row.prop(scene, "batch_export_directory", text="")
+        
+        # 下拉菜单用于选择以前的导出地址
+        row.prop_menu_enum(scene, "previous_export_directory", text="", icon='DOWNARROW_HLT')
+        
+        # 打开文件夹的按钮
+        row.operator("file.select_directory", text="", icon='FILE_FOLDER')
         
         # 检查输出目录是否为空
         if not scene.batch_export_directory:
-            col.label(text="Please specify an output directory.", icon='ERROR')
+            layout.label(text="Please specify an output directory.", icon='ERROR')
         else:
-            col.operator("export.batch_fbx", text="Batch Export Selected Objects")
+            layout.operator("export.batch_fbx", text="Batch Export Selected Objects")
 
+ 
 def register():
     bpy.utils.register_class(BatchExportFBXOperator)
     bpy.utils.register_class(OBJECT_PT_BatchExportPanel)
+
     bpy.types.Scene.batch_export_directory = bpy.props.StringProperty(
         name="Output Directory",
         subtype='DIR_PATH'
+    )
+
+    bpy.types.Scene.DirPathItem = bpy.props.StringProperty(
+        name="Directory Path",
+        description="A directory path",
+        default="",
+        maxlen=1024,
+        subtype='DIR_PATH',
+    )
+
+    bpy.types.Scene.previous_export_directories = bpy.props.CollectionProperty(
+        type=bpy.types.PropertyGroup
+    )
+    bpy.types.Scene.previous_export_directory = bpy.props.EnumProperty(
+        name="Previous Export Directory",
+        items=lambda self, context: [(i.name, i.name, i.name) for i in context.scene.previous_export_directories],
+        update=lambda self, context: setattr(context.scene, "batch_export_directory", self.previous_export_directory)
     )
 
 def unregister():
     bpy.utils.unregister_class(BatchExportFBXOperator)
     bpy.utils.unregister_class(OBJECT_PT_BatchExportPanel)
     del bpy.types.Scene.batch_export_directory
+    del bpy.types.Scene.DirPathItem
+    del bpy.types.Scene.previous_export_directories
+    del bpy.types.Scene.previous_export_directory
 
 if __name__ == "__main__":
     register()
